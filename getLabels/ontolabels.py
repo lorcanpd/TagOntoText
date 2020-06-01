@@ -17,7 +17,7 @@ class OntoLabels:
         onto = owlready2.get_ontology(uri).load()
         for c in onto.classes():
             try:
-                labels.add(c.label[0])
+                self.labels.add(c.label[0])
             except IndexError:
                 pass
             
