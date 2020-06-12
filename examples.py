@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from getLabels.ontolabels import OntoLabels
+from ontolabels import OntoLabels
 
 labels = OntoLabels()
 
