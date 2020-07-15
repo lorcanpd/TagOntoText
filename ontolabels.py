@@ -47,16 +47,22 @@ class OntoLabels:
         else:
             raise TypeError("uris must be a single uri string or a list of uri strings.")
 
-        # Remove common short words.
-        self.labels.difference_update(
-            # One letter words.
-            "a", "i",
+        # Remove common short strings.
+        self.labels.difference_update([
+            # Numbers.
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+            # One letter.
+            "a", "b", "c", "d", "e", "f", "g" "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v",
+            "w", "x", "y", "z",
             # Two letter words.
             "of", "to", "in", "it", "is", "be", "as", "at", "so", "we", "he", "by", "or", "on", "do", "if", "me", "my",
-            "up", "an", "go", "no", "us", "am",
+            "up", "an", "go", "no", "us", "am", "et", "al", "eg",
             # Three letter words.
             "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "had", "her", "was", "one", "our",
             "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see", "two", "way", "who",
-            "boy", "did", "its", "let", "put", "say", "she", "too", "use"
-        )
+            "boy", "did", "its", "let", "put", "say", "she", "too", "use", "per", "set", "max", "min",
+            # Other.
+            "quality"
+        ])
+
         print("Labels extracted.")
