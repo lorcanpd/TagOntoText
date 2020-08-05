@@ -188,7 +188,8 @@ def modeller(features, labels, mode, params):
             )
 
 def run(params=None):
-    if params = None:
+
+    if params is None:
         params = {
             'dim_chars': 100,
             'dim': 300,
@@ -200,10 +201,10 @@ def run(params=None):
             'filters': 50,
             'kernel_size': 3,
             'lstm_size': 100,
-            'words': str(Path("Sandbox/vocab_words")),  # CREATE VOCAB ETC.
-            'chars': str(Path("Sandbox/vocab_chars")),
-            'tags': str(Path("Sandbox/vocab_tags")),
-            'glove': str(Path("../../../../Data/glove.840B.300d.txt"))
+            'words': str(Path("Sandbox/vocab_words.txt")),  # CREATE VOCAB ETC.
+            'chars': str(Path("Sandbox/vocab_chars.txt")),
+            'tags': str(Path("Sandbox/vocab_tags.txt")),
+            'glove': str(Path("Sandbox/glove.npz"))
         }
 
     with Path('results/params.json').open('w') as f:

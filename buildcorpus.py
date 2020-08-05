@@ -59,7 +59,7 @@ def makeCorpus(filepath, outdir, labels):
                 tp.write("\n")
 
     with open(outdir+"/vocab_words.txt", "w") as vw, \
-            open(outdir+"/vocab_chars") as vc:
+            open(outdir+"/vocab_chars.txt", "w") as vc:
         chars = set()
         for word in vocab:
             vw.write(f"{word} \n")
