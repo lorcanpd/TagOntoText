@@ -1,5 +1,5 @@
 from tensorflow.keras.preprocessing.text import text_to_word_sequence as tokenise
-
+from unidecode import unidecode
 
 def makeCorpus(filepath, outdir, labels):
 
@@ -43,12 +43,12 @@ def makeCorpus(filepath, outdir, labels):
     wordpath = outdir+"/raw_words.txt"
     tagspath = outdir+"/raw_tags.txt"
     with open(filepath, "r") as fp, open(wordpath, "w") as wp, open(tagspath, "w") as tp:
-        vocab = set()
+        # vocab = set()
         for line in fp:
-            line = line.rstrip('\n')
+            line = unidecode(line).rstrip('\n')
             tokens, tags = worker(line, labels)
             if tokens and tags:
-                vocab.update(tokens)
+                # vocab.update(tokens.strip())
                 assert len(tokens) == len(tags), "Number of tokens and tags don't match"
                 for i, t in enumerate(tokens):
                     wp.write(f"{t} ")
@@ -58,15 +58,15 @@ def makeCorpus(filepath, outdir, labels):
                 wp.write("\n")
                 tp.write("\n")
 
-    with open(outdir+"/vocab_words.txt", "w") as vw, \
-            open(outdir+"/vocab_chars.txt", "w") as vc:
-        chars = set()
-        for word in vocab:
-            vw.write(f"{word} \n")
-            chars.update(list(word))
-
-        for char in chars:
-            vc.write(f"{char} \n")
+    # with open(outdir+"/vocab_words.txt", "w") as vw, \
+    #         open(outdir+"/vocab_chars.txt", "w") as vc:
+    #     chars = set()
+    #     for word in vocab:
+    #         vw.write(f"{word} \n")
+    #         chars.update(list(word))
+    #
+    #     for char in chars:
+    #         vc.write(f"{char} \n")
 
     print("Labelling complete.")
 

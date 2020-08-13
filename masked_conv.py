@@ -34,7 +34,8 @@ def masked_conv1d_and_max(t, weights, filters, kernel_size):
 
     # Reshape weights
     weights = tf.reshape(weights, shape=[dim1, dim2, 1])
-    weights = tf.to_float(weights)
+    # weights = tf.to_float(weights)
+    weights = tf.cast(weights, dtype=tf.float32)
 
     # Reshape input and apply weights
     flat_shape = [dim1, dim2, dim3]
@@ -42,7 +43,16 @@ def masked_conv1d_and_max(t, weights, filters, kernel_size):
     t *= weights
 
     # Apply convolution
-    t_conv = tf.layers.conv1d(t, filters, kernel_size, padding='same')
+    # t_conv = tf.layers.conv1d(t, filters, kernel_size, padding='same')
+    # t_conv = tf.nn.conv1d(input=t, filters=filters, stride=1,
+                          # padding='same')
+    # t_conv = tf.nn.convolution(input=t, filters=filters, padding="SAME")
+    # t_conv = tf.keras.layers.Conv1D(filters=filters, kernel_size=kernel_size,
+    #                                 padding='same')(t)
+    t_conv = tf.compat.v1.layers.conv1d(inputs=t,
+                                        filters=filters,
+                                        kernel_size=kernel_size,
+                                        padding='same')
     t_conv *= weights
 
     # Reduce max -- set to zero if all padded

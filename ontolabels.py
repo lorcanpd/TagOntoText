@@ -20,7 +20,8 @@ class OntoLabels:
         for c in onto.classes():
             try:
                 # lab = sub(r"\s*(\((?>[^()]+|(?1))*\))$", "", c.label[0])
-                self.labels.add(sub(r"\s*(\((?>[^()]+|(?1))*\))$", "", c.label[0]))
+                self.labels.add(sub(r"\s*(\((?>[^()]+|(?1))*\))$", "",
+                                    c.label[0]))
                 # self.labels.add(c.label[0])
             except IndexError:
                 pass
@@ -57,12 +58,15 @@ class OntoLabels:
             'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
             'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
             # Two letter words.
-            "of", "to", "in", "it", "is", "be", "as", "at", "so", "we", "he", "by", "or", "on", "do", "if", "me", "my",
-            "up", "an", "go", "no", "us", "am", "et", "al", "eg",
+            "of", "to", "in", "it", "is", "be", "as", "at", "so", "we", "he",
+            "by", "or", "on", "do", "if", "me", "my", "up", "an", "go", "no",
+            "us", "am", "et", "al", "eg",
             # Three letter words.
-            "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "had", "her", "was", "one", "our",
-            "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see", "two", "way", "who",
-            "boy", "did", "its", "let", "put", "say", "she", "too", "use", "per", "set", "max", "min",
+            "the", "and", "for", "are", "but", "not", "you", "all", "any",
+            "can", "had", "her", "was", "one", "our", "out", "day", "get",
+            "has", "him", "his", "how", "man", "new", "now", "old", "see",
+            "two", "way", "who", "boy", "did", "its", "let", "put", "say",
+            "she", "too", "use", "per", "set", "max", "min", "der",
             # Other.
             "quality"
         ])
