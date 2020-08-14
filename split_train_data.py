@@ -5,7 +5,8 @@ from os.path import dirname
 from pathlib import Path
 from numpy import floor
 
-def bufferCount(filename):
+
+def buffer_count(filename):
     """Rapidly count the number of lines in a text document"""
     f = open(filename)
     lines = 0
@@ -19,7 +20,8 @@ def bufferCount(filename):
 
     return lines
 
-def getRandInd(index_list, num_indexes):
+
+def get_rand_int(index_list, num_indexes):
     output = []
     shuffle(index_list)
     for i in range(num_indexes):
@@ -27,7 +29,8 @@ def getRandInd(index_list, num_indexes):
 
     return set(output)
 
-def refineFile(raw_file, indecies, name):
+
+def refine_file(raw_file, indecies, name):
     """Extract specific lines from the raw text or tag file and append them to
     a new test or validation file."""
     dirpath = dirname(raw_file)
@@ -42,8 +45,7 @@ def refineFile(raw_file, indecies, name):
     return f"{name}_{name2}.txt complete"
 
 
-
-def splitTrainTestVal(datadir, test_prop, val_prop, seed_=None):
+def split_train_test_val(datadir, test_prop, val_prop, seed_=None):
 
     if seed_ is not None:
         seed(seed_)
@@ -51,28 +53,23 @@ def splitTrainTestVal(datadir, test_prop, val_prop, seed_=None):
     raw_textfile = f'{datadir}/raw_words.txt'
     raw_tagfile = f'{datadir}/raw_tags.txt'
 
-    rawnum = bufferCount(raw_textfile)
+    rawnum = buffer_count(raw_textfile)
 
     testnum = int(floor(test_prop * rawnum))
     valnum = int(floor(val_prop * rawnum))
 
     trainlines = [x for x in range(rawnum)]
-    testlines = getRandInd(trainlines, testnum)
-    vallines = getRandInd(trainlines, valnum)
+    testlines = get_rand_int(trainlines, testnum)
+    vallines = get_rand_int(trainlines, valnum)
 
     shuffle(trainlines)
-    refineFile(raw_textfile, trainlines, 'train')
-    refineFile(raw_tagfile, trainlines, 'train')
+    refine_file(raw_textfile, trainlines, 'train')
+    refine_file(raw_tagfile, trainlines, 'train')
 
     if testnum > 0:
-        refineFile(raw_textfile, testlines, 'test')
-        refineFile(raw_tagfile, testlines, 'test')
+        refine_file(raw_textfile, testlines, 'test')
+        refine_file(raw_tagfile, testlines, 'test')
 
     if valnum > 0:
-        refineFile(raw_textfile, vallines, 'val')
-        refineFile(raw_tagfile, vallines, 'val')
-
-
-
-
-
+        refine_file(raw_textfile, vallines, 'val')
+        refine_file(raw_tagfile, vallines, 'val')

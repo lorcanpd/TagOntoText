@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .ontolabels import OntoLabels
+from .onto_labels import OntoLabels
 # from .buildcorpus import makeCorpus
 
 labels = OntoLabels()
