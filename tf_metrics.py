@@ -2,6 +2,9 @@
 
 """Multiclass"""
 
+
+# Adapted to tensorflow 2.2.
+
 __author__ = "Guillaume Genthial"
 
 import numpy as np
@@ -44,7 +47,7 @@ def precision(labels, predictions, num_classes, pos_indices=None,
         cm, pos_indices, average=average)
     op, _, _ = metrics_from_confusion_matrix(
         op, pos_indices, average=average)
-    return (pr, op)
+    return pr, op
 
 
 def recall(labels, predictions, num_classes, pos_indices=None, weights=None,
@@ -82,7 +85,7 @@ def recall(labels, predictions, num_classes, pos_indices=None, weights=None,
         cm, pos_indices, average=average)
     _, op, _ = metrics_from_confusion_matrix(
         op, pos_indices, average=average)
-    return (re, op)
+    return re, op
 
 
 def f1(labels, predictions, num_classes, pos_indices=None, weights=None,
@@ -128,7 +131,7 @@ def fbeta(labels, predictions, num_classes, pos_indices=None, weights=None,
         cm, pos_indices, average=average, beta=beta)
     _, _, op = metrics_from_confusion_matrix(
         op, pos_indices, average=average, beta=beta)
-    return (fbeta, op)
+    return fbeta, op
 
 
 def safe_div(numerator, denominator):
@@ -147,7 +150,6 @@ def pr_re_fbeta(cm, pos_indices, beta=1):
     neg_indices = [i for i in range(num_classes) if i not in pos_indices]
     cm_mask = np.ones([num_classes, num_classes])
     cm_mask[neg_indices, neg_indices] = 0
-    # diag_sum = tf.reduce_sum(tf.diag_part(cm * cm_mask))
     diag_sum = tf.reduce_sum(tf.linalg.diag_part(cm * cm_mask))
 
     cm_mask = np.ones([num_classes, num_classes])
@@ -194,7 +196,6 @@ def metrics_from_confusion_matrix(cm, pos_indices=None, average='micro',
             fbetas.append(fbeta)
             cm_mask = np.zeros([num_classes, num_classes])
             cm_mask[idx, :] = 1
-            # n_golds.append(tf.to_float(tf.reduce_sum(cm * cm_mask)))
             n_golds.append(
                 tf.cast(
                     tf.reduce_sum(cm * cm_mask),

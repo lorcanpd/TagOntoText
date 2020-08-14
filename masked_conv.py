@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
+
+
 """Implement masked 1d convolution with max-pooling"""
 
-__author__ = "Guillaume Genthial"
-
-# From https://github.com/guillaumegenthial/tf_ner/blob/master/models/chars_conv_lstm_crf/masked_conv.py
+# Updated to tensorflow 2.2 from:
+# https://github.com/guillaumegenthial/tf_ner/blob/master/models/chars_conv_lstm_crf/masked_conv.py
 
 from six.moves import reduce
 import tensorflow as tf
@@ -34,7 +36,7 @@ def masked_conv1d_and_max(t, weights, filters, kernel_size):
 
     # Reshape weights
     weights = tf.reshape(weights, shape=[dim1, dim2, 1])
-    # weights = tf.to_float(weights)
+
     weights = tf.cast(weights, dtype=tf.float32)
 
     # Reshape input and apply weights
@@ -43,12 +45,6 @@ def masked_conv1d_and_max(t, weights, filters, kernel_size):
     t *= weights
 
     # Apply convolution
-    # t_conv = tf.layers.conv1d(t, filters, kernel_size, padding='same')
-    # t_conv = tf.nn.conv1d(input=t, filters=filters, stride=1,
-                          # padding='same')
-    # t_conv = tf.nn.convolution(input=t, filters=filters, padding="SAME")
-    # t_conv = tf.keras.layers.Conv1D(filters=filters, kernel_size=kernel_size,
-    #                                 padding='same')(t)
     t_conv = tf.compat.v1.layers.conv1d(inputs=t,
                                         filters=filters,
                                         kernel_size=kernel_size,
@@ -64,4 +60,3 @@ def masked_conv1d_and_max(t, weights, filters, kernel_size):
     t_max = tf.reshape(t_max, shape=final_shape)
 
     return t_max
-

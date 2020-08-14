@@ -43,7 +43,7 @@ class OntoLabels:
         
         else:
             raise TypeError(
-                "uris must be a single uri string or a list of uri strings."
+                "URIs must be a single URI string or a list of URI strings."
             )
 
         # Remove common short strings.
