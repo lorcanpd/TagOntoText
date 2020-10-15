@@ -47,6 +47,7 @@ def precision(labels, predictions, num_classes, pos_indices=None,
         cm, pos_indices, average=average)
     op, _, _ = metrics_from_confusion_matrix(
         op, pos_indices, average=average)
+    # breakpoint()
     return pr, op
 
 
@@ -85,6 +86,7 @@ def recall(labels, predictions, num_classes, pos_indices=None, weights=None,
         cm, pos_indices, average=average)
     _, op, _ = metrics_from_confusion_matrix(
         op, pos_indices, average=average)
+    # breakpoint()
     return re, op
 
 
@@ -216,6 +218,7 @@ def metrics_from_confusion_matrix(cm, pos_indices=None, average='micro',
             re = safe_div(re_sum, n_gold)
             fbeta_sum = sum(f * n for f, n in zip(fbetas, n_golds))
             fbeta = safe_div(fbeta_sum, n_gold)
+            breakpoint()
             return pr, re, fbeta
 
     else:

@@ -1,3 +1,8 @@
 test.ipynb
 **/__pycache__
 /ELMo/
+tf_metrics.py
+tf_model.py
+tf_sequential.py
+vanilla_model.py
+masked_conv.py

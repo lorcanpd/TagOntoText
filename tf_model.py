@@ -15,7 +15,8 @@ import tensorflow_addons as tfa
 from .tf_metrics import precision, recall, f1
 
 from .masked_conv import masked_conv1d_and_max
-
+from .custom_crf import crf_log_likelihood as cust_crf_log_likelihood
+from .custom_crf import lid
 
 # Logging
 Path('Results').mkdir(exist_ok=True)
@@ -108,7 +109,6 @@ def inputter(wordpath, tagpath, params=None, shuffle_and_repeat=False):
 
 
 def modeller(features, mode, params):
-
     if isinstance(features, dict):
         labels = features['tags']
         features = ((features['words'], features['nwords']),
@@ -120,6 +120,7 @@ def modeller(features, mode, params):
     (words, nwords), (chars, nchars) = features
 
     training = (mode == tf.estimator.ModeKeys.TRAIN)
+    testing = (mode == tf.estimator.ModeKeys.EVAL)
 
     vocab_words = tf.lookup.StaticVocabularyTable(
         tf.lookup.TextFileInitializer(
@@ -203,11 +204,18 @@ def modeller(features, mode, params):
         merge_mode='concat'
     )(embeddings)
 
+    # ADD LID CALCULATION HERE.
+    if testing:
+        batch_lids = lid(logits=output, k=20)
+
+
+
     if training:
         output = tf.nn.dropout(x=output, rate=dropout)
     # CRF.
     logits = tf.keras.layers.Dense(num_tags)(output)
 
+    # Randomly initialised transition parameters.
     crf_params = tf.Variable(
         initial_value=tf.random.uniform(
             shape=[num_tags, num_tags],
@@ -264,6 +272,13 @@ def modeller(features, mode, params):
             sequence_lengths=nwords,
             transition_params=crf_params
         )
+        # log_likelihood = cust_crf_log_likelihood(
+        #     imputs=logits,
+        #     tag_indices=tags,
+        #     sequence_lengths=nwords,
+        #     transition_params=crf_params,
+        #     policy_factor=policy_factor
+        # )
         loss = tf.compat.v1.reduce_mean(-log_likelihood)
 
         # Metrics.
