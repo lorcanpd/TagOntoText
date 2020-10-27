@@ -1,12 +1,11 @@
-# import numpy as np
-import tensorflow as tf
 
+import tensorflow as tf
 from tensorflow_addons.utils.types import TensorLike
-# from typeguard import typechecked
 from typing import Optional
 
 # TODO: Wrap functions in @tf.function once
 # https://github.com/tensorflow/tensorflow/issues/29075 is resolved
+
 
 def ddl_crf_sequence_score(
     inputs: TensorLike,
@@ -23,6 +22,7 @@ def ddl_crf_sequence_score(
           we compute the unnormalized score.
       sequence_lengths: A [batch_size] vector of true sequence lengths.
       transition_params: A [num_tags, num_tags] transition matrix.
+      policy_factor: ADD DESCRIPTION.
     Returns:
       sequence_scores: A [batch_size] vector of unnormalized sequence scores.
     """
@@ -60,18 +60,21 @@ def ddl_crf_sequence_score(
 
     def _multi_seq_fn():
         # Compute the scores of the given tag sequence.
-        unary_scores = ddl_crf_unary_score(tag_indices, sequence_lengths, inputs,
-                                       policy_factor)
+        unary_scores = ddl_crf_unary_score(tag_indices, sequence_lengths,
+                                           inputs, policy_factor)
         binary_scores = crf_binary_score(
             tag_indices, sequence_lengths, transition_params
         )
         sequence_scores = unary_scores + binary_scores
         return sequence_scores
 
-    return tf.cond(tf.equal(tf.shape(inputs)[1], 1), _single_seq_fn, _multi_seq_fn)
+    return tf.cond(tf.equal(tf.shape(inputs)[1], 1), _single_seq_fn,
+                   _multi_seq_fn)
+
 
 def crf_log_norm(
-    inputs: TensorLike, sequence_lengths: TensorLike, transition_params: TensorLike
+    inputs: TensorLike, sequence_lengths: TensorLike,
+    transition_params: TensorLike
 ) -> tf.Tensor:
     """Computes the normalization for a CRF.
     Args:
@@ -94,7 +97,8 @@ def crf_log_norm(
         log_norm = tf.reduce_logsumexp(first_input, [1])
         # Mask `log_norm` of the sequences with length <= zero.
         log_norm = tf.where(
-            tf.less_equal(sequence_lengths, 0), tf.zeros_like(log_norm), log_norm
+            tf.less_equal(sequence_lengths, 0), tf.zeros_like(log_norm),
+            log_norm
         )
         return log_norm
 
@@ -103,18 +107,20 @@ def crf_log_norm(
         rest_of_input = tf.slice(inputs, [0, 1, 0], [-1, -1, -1])
         # Compute the alpha values in the forward algorithm in order to get the
         # partition function.
-
         alphas = crf_forward(
             rest_of_input, first_input, transition_params, sequence_lengths
         )
         log_norm = tf.reduce_logsumexp(alphas, [1])
         # Mask `log_norm` of the sequences with length <= zero.
         log_norm = tf.where(
-            tf.less_equal(sequence_lengths, 0), tf.zeros_like(log_norm), log_norm
+            tf.less_equal(sequence_lengths, 0), tf.zeros_like(log_norm),
+            log_norm
         )
         return log_norm
 
-    return tf.cond(tf.equal(tf.shape(inputs)[1], 1), _single_seq_fn, _multi_seq_fn)
+    return tf.cond(tf.equal(tf.shape(inputs)[1], 1), _single_seq_fn,
+                   _multi_seq_fn)
+
 
 def ddl_crf_log_likelihood(
     inputs: TensorLike,
@@ -130,6 +136,7 @@ def ddl_crf_log_likelihood(
       tag_indices: A [batch_size, max_seq_len] matrix of tag indices for which
           we compute the log-likelihood.
       sequence_lengths: A [batch_size] vector of true sequence lengths.
+      policy_factor: ADD DESCRIPTION.
       transition_params: A [num_tags, num_tags] transition matrix,
           if available.
     Returns:
@@ -161,7 +168,8 @@ def ddl_crf_log_likelihood(
 
 
 def crf_binary_score(
-    tag_indices: TensorLike, sequence_lengths: TensorLike, transition_params: TensorLike
+    tag_indices: TensorLike, sequence_lengths: TensorLike,
+    transition_params: TensorLike
 ) -> tf.Tensor:
     """Computes the binary scores of tag sequences.
     Args:
@@ -183,11 +191,13 @@ def crf_binary_score(
     end_tag_indices = tf.slice(tag_indices, [0, 1], [-1, num_transitions])
 
     # Encode the indices in a flattened representation.
-    flattened_transition_indices = start_tag_indices * num_tags + end_tag_indices
+    flattened_transition_indices = \
+        start_tag_indices * num_tags + end_tag_indices
     flattened_transition_params = tf.reshape(transition_params, [-1])
 
     # Get the binary scores based on the flattened representation.
-    binary_scores = tf.gather(flattened_transition_params, flattened_transition_indices)
+    binary_scores = tf.gather(flattened_transition_params,
+                              flattened_transition_indices)
 
     masks = tf.sequence_mask(
         sequence_lengths, maxlen=tf.shape(tag_indices)[1], dtype=tf.float32
@@ -276,14 +286,15 @@ def ddl_crf_unary_score(
     flattened_tag_indices = tf.reshape(offsets + tag_indices, [-1])
 
     unary_scores = tf.reshape(
-        tf.gather(flattened_inputs, flattened_tag_indices), [batch_size, max_seq_len]
+        tf.gather(flattened_inputs, flattened_tag_indices),
+        [batch_size, max_seq_len]
     )
 
     unary_scores = tf.reduce_sum(unary_scores * masks, 1)
 
     if policy_factor != 1:
-        # Calculate the score by summing the maximum unary potentials of each token.
-        # This treats the tags predicted by the network as correct.
+        # Calculate the score by summing the maximum unary potentials of each
+        # token. This treats the tags predicted by the network as correct.
 
         y_hat = tf.reduce_sum(
             tf.reduce_max(inputs, keepdims=False, axis=2) * masks,
@@ -309,6 +320,7 @@ def aere_crf_unary_score(
       tag_indices: A [batch_size, max_seq_len] matrix of tag indices.
       sequence_lengths: A [batch_size] vector of true sequence lengths.
       inputs: A [batch_size, max_seq_len, num_tags] tensor of unary potentials.
+      false_negatives: ADD DESCRIPTION.
     Returns:
       y_star: A [batch_size] vector of LID-corrected unary scores.
     """
@@ -344,7 +356,8 @@ def aere_crf_unary_score(
     flattened_tag_indices = tf.reshape(offsets + tag_indices, [-1])
 
     unary_scores = tf.reshape(
-        tf.gather(flattened_inputs, flattened_tag_indices), [batch_size, max_seq_len]
+        tf.gather(flattened_inputs, flattened_tag_indices),
+        [batch_size, max_seq_len]
     )
 
     unary_scores = tf.reduce_sum(unary_scores * masks * fn_mask, 1)
@@ -366,6 +379,7 @@ def aere_crf_sequence_score(
       tag_indices: A [batch_size, max_seq_len] matrix of tag indices for which
           we compute the unnormalized score.
       sequence_lengths: A [batch_size] vector of true sequence lengths.
+      false_negatives: ADD DESCRIPTION.
       transition_params: A [num_tags, num_tags] transition matrix.
     Returns:
       sequence_scores: A [batch_size] vector of unnormalized sequence scores.
@@ -403,15 +417,16 @@ def aere_crf_sequence_score(
 
     def _multi_seq_fn():
         # Compute the scores of the given tag sequence.
-        unary_scores = aere_crf_unary_score(tag_indices, sequence_lengths, inputs,
-                                            false_negatives)
+        unary_scores = aere_crf_unary_score(tag_indices, sequence_lengths,
+                                            inputs, false_negatives)
         binary_scores = crf_binary_score(
             tag_indices, sequence_lengths, transition_params
         )
         sequence_scores = unary_scores + binary_scores
         return sequence_scores
 
-    return tf.cond(tf.equal(tf.shape(inputs)[1], 1), _single_seq_fn, _multi_seq_fn)
+    return tf.cond(tf.equal(tf.shape(inputs)[1], 1), _single_seq_fn,
+                   _multi_seq_fn)
 
 
 def aere_crf_log_likelihood(
@@ -428,6 +443,7 @@ def aere_crf_log_likelihood(
       tag_indices: A [batch_size, max_seq_len] matrix of tag indices for which
           we compute the log-likelihood.
       sequence_lengths: A [batch_size] vector of true sequence lengths.
+      false_negatives: ADD DESCRIPTION.
       transition_params: A [num_tags, num_tags] transition matrix,
           if available.
     Returns:

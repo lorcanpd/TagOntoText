@@ -50,8 +50,10 @@ class DAEncModel(CustomModelBase):
 
         output = self.bi_lstm_layer(embeddings)
 
-        if not training:
+        if training:
             batch_lids = self._lid(logits=output, k=5)
+            not_inf = tf.math.is_finite(batch_lids)
+            batch_lids = tf.boolean_mask(batch_lids, not_inf)
         else:
             batch_lids = None
 
@@ -67,12 +69,16 @@ class DAEncModel(CustomModelBase):
 
         if training:
             # Use auto encoder error to discriminate.
-            # breakpoint()
             false_negs = self.encoder_predict(embeddings_copy, pred_ids)
         else:
             false_negs = None
 
         return logits, pred_ids, batch_lids, false_negs, embeddings_copy
+
+    def predict_step(self, features):
+        _, pred_ids, _, _, _ = self.call(features, training=False)
+        pred_ids = self.reverse_vocab_tags.lookup(tf.cast(pred_ids, tf.int64))
+        return pred_ids
 
     def encoder_predict(self, embeddings, pred_ids):
         flat_embeddings = tf.reshape(
@@ -100,8 +106,10 @@ class DAEncModel(CustomModelBase):
 
     def train_step(self, features, tags):
         with tf.GradientTape() as tape:
-            logits, pred_ids, _, false_negs, embs = self.call(features,
-                                                              training=True)
+            logits, pred_ids, batch_lids, false_negs, embs = self.call(
+                features,
+                training=True
+            )
             loss_value = self._loss_fn(logits,
                                        tags,
                                        features['nwords'],
@@ -119,20 +127,21 @@ class DAEncModel(CustomModelBase):
 
         weights = tf.cast(tf.sequence_mask(features['nwords']), tf.int32)
 
-        self.epoch_train_loss.update_state(loss_value)
-        self.epoch_train_accuracy.update_state(tags, pred_ids)
-        self.epoch_train_true_positives.update_state(
+        self.epoch_train_metrics['loss'].update_state(loss_value)
+        self.epoch_train_metrics['accuracy'].update_state(tags, pred_ids)
+        self.epoch_train_metrics['true_positives'].update_state(
             tags, pred_ids, self.num_tags, self.indices, weights
         )
-        self.epoch_train_false_positives.update_state(
+        self.epoch_train_metrics['false_positives'].update_state(
             tags, pred_ids, self.num_tags, self.indices, weights
         )
-        self.epoch_train_false_negatives.update_state(
+        self.epoch_train_metrics['false_negatives'].update_state(
             tags, pred_ids, self.num_tags, self.indices, weights
         )
+        self.epoch_train_metrics['lid'].update_state(batch_lids)
 
     def test_step(self, features, tags):
-        logits, pred_ids, batch_lids, _, _ = self.call(features, training=False)
+        logits, pred_ids, _, _, _ = self.call(features, training=False)
         loss_value = self._loss_fn(logits,
                                    tags,
                                    features['nwords'],
@@ -141,18 +150,17 @@ class DAEncModel(CustomModelBase):
 
         weights = tf.cast(tf.sequence_mask(features['nwords']), tf.int32)
 
-        self.epoch_test_loss.update_state(loss_value)
-        self.epoch_test_accuracy.update_state(tags, pred_ids)
-        self.epoch_test_true_positives.update_state(
+        self.epoch_test_metrics['loss'].update_state(loss_value)
+        self.epoch_test_metrics['accuracy'].update_state(tags, pred_ids)
+        self.epoch_test_metrics['true_positives'].update_state(
             tags, pred_ids, self.num_tags, self.indices, weights
         )
-        self.epoch_test_false_positives.update_state(
+        self.epoch_test_metrics['false_positives'].update_state(
             tags, pred_ids, self.num_tags, self.indices, weights
         )
-        self.epoch_test_false_negatives.update_state(
+        self.epoch_test_metrics['false_negatives'].update_state(
             tags, pred_ids, self.num_tags, self.indices, weights
         )
-        self.epoch_test_lid.update_state(batch_lids)
 
     def _loss_fn(self, logits, tags, nwords, crf_params, false_negatives):
         log_likelihood, _ = aere_crf_log_likelihood(
