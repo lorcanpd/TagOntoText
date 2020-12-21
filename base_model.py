@@ -104,11 +104,13 @@ class CustomModelBase(tf.keras.Model):
         output = self.bi_lstm_layer(embeddings)
 
         if training:
-            batch_lids = self._lid(logits=output, k=5)
-            not_inf = tf.math.is_finite(batch_lids)
-            batch_lids = tf.boolean_mask(batch_lids, not_inf)
+            # batch_lids = self._lid(logits=output, k=5)
+            # not_inf = tf.math.is_finite(batch_lids)
+            # batch_lids = tf.boolean_mask(batch_lids, not_inf)
+            for_lids = output
         else:
-            batch_lids = None
+            for_lids = None
+            # batch_lids = None
 
         if training:
             output = tf.nn.dropout(x=output,
@@ -120,7 +122,7 @@ class CustomModelBase(tf.keras.Model):
                                               transition_params=self.crf_params,
                                               sequence_length=nwords)
 
-        return logits, pred_ids, batch_lids
+        return logits, pred_ids, for_lids # batch_lids
 
     def predict_step(self, features):
         _, pred_ids, _ = self.call(features, training=False)
@@ -152,7 +154,8 @@ class CustomModelBase(tf.keras.Model):
 
     def train_step(self, features, tags):
         with tf.GradientTape() as tape:
-            logits, pred_ids, batch_lids = self.call(features, training=True)
+            # logits, pred_ids, batch_lids = self.call(features, training=True)
+            logits, pred_ids, for_lids = self.call(features, training=True)
             loss_value = self._loss_fn(logits,
                                        tags,
                                        features['nwords'],
@@ -162,7 +165,13 @@ class CustomModelBase(tf.keras.Model):
 
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
 
-        weights = tf.cast(tf.sequence_mask(features['nwords']), tf.int32)
+        mask = tf.sequence_mask(features['nwords'])
+
+        # Calculate latent intrinsic dimensionality.
+        for_lids = tf.boolean_mask(for_lids, mask)
+        batch_lids = self._lid(for_lids, k=5)
+
+        weights = tf.cast(mask, tf.int32)
 
         self.epoch_train_metrics['loss'].update_state(loss_value)
         self.epoch_train_metrics['accuracy'].update_state(tags, pred_ids)
@@ -176,6 +185,9 @@ class CustomModelBase(tf.keras.Model):
             tags, pred_ids, self.num_tags, self.indices, weights
         )
         self.epoch_train_metrics['lid'].update_state(batch_lids)
+        # LID RECORDING LIST
+        # self.lid_utils['lid'].append(tf.reduce_mean(batch_lids))
+        # self.lid_utils['policy_factor'].append(self.policy)
 
     def test_step(self, features, tags):
         logits, pred_ids, _ = self.call(features, training=False)
@@ -201,20 +213,23 @@ class CustomModelBase(tf.keras.Model):
     def _initialise_metrics(self):
         # Training.
         self.train_metrics = {}
-        for m in ['loss', 'accuracy', 'precision', 'recall', 'f1', 'lid',
+        for m in ['loss', 'accuracy', 'precision', 'recall', 'f1',
+                  'lid',
                   'iter']:
             self.train_metrics[m] = []
-        self.lid_utils = {
-            'lid': [],
-            'iter': [],
-            'policy_factor': []
-        }
+        # self.lid_utils = {
+        #     'lid': []#,
+        #     # 'iter': [],
+        #     # 'policy_factor': []
+        # }
+
         self.epoch_train_metrics = {
             'loss': tf.keras.metrics.Mean(name="loss"),
             'accuracy': tf.keras.metrics.Accuracy(name="accuracy"),
             'true_positives': MultiClassTruePositives(),
             'false_positives': MultiClassFalsePositives(),
             'false_negatives': MultiClassFalseNegatives(),
+            # 'lid': []
             'lid': tf.keras.metrics.Mean(name="lid")
         }
 
@@ -232,7 +247,7 @@ class CustomModelBase(tf.keras.Model):
         }
 
         self.current_train_metrics = {}
-        for m in ['loss', 'accuracy', 'precision', 'recall', 'f1']:
+        for m in ['loss', 'accuracy', 'precision', 'recall', 'f1', 'lid']:
             self.current_train_metrics[m] = []
 
     def end_of_epoch_metrics(self, i, end=True):
@@ -260,14 +275,19 @@ class CustomModelBase(tf.keras.Model):
                     self.epoch_train_metrics['false_negatives'].result()
                 )
             )
+            # if len(self.lid_utils['lid']) < iter_per:
+            #     value = tf.reduce_mean(self.lid_utils['lid'])
+            # else:
+            #     value = tf.reduce_mean(self.lid_utils['lid'][-iter_per:])
             self.train_metrics['lid'].append(
-                tf.reduce_mean(self.lid_utils['lid'][-5:])
+                self.epoch_train_metrics['lid'].result()
             )
+            # tf.reduce_mean(self.lid_utils['lid'][-5:])
             self.train_metrics['iter'].append(i)
 
             for k, v in self.epoch_train_metrics.items():
-                if k is not 'lid':
-                    v.reset_states()
+                # if k is not 'lid':
+                v.reset_states()
 
             for m in ['loss', 'accuracy']:
                 self.test_metrics[m].append(
@@ -297,7 +317,7 @@ class CustomModelBase(tf.keras.Model):
                 v.reset_states()
 
             self.current_train_metrics = {}
-            for m in ['loss', 'accuracy', 'precision', 'recall', 'f1']:
+            for m in ['loss', 'accuracy', 'precision', 'recall', 'f1', 'lid']:
                 self.current_train_metrics[m] = []
 
         else:
@@ -323,6 +343,13 @@ class CustomModelBase(tf.keras.Model):
                     self.epoch_train_metrics['false_positives'].result(),
                     self.epoch_train_metrics['false_negatives'].result()
                 )
+            )
+            # if len(self.lid_utils['lid']) < iter_per:
+            #     value = tf.reduce_mean(self.lid_utils['lid'])
+            # else:
+            #     value = tf.reduce_mean(self.lid_utils['lid'][-iter_per:])
+            self.current_train_metrics['lid'].append(
+                self.epoch_train_metrics['lid'].result()
             )
 
     def _test(self, test_data, steps=None):
@@ -369,7 +396,7 @@ class CustomModelBase(tf.keras.Model):
             s = (
                 "Training Epoch {:03d}, Batch {:03d}: Loss: {loss:.3f}, "
                 "Accuracy: {accuracy:.1%}, Precision: {precision:.1%}, "
-                "Recall: {recall:.1%}, F1: {f1:.1%}").format(
+                "Recall: {recall:.1%}, F1: {f1:.1%}, Mean LID: {lid:.1f}").format(
                 epoch, batch, **print_dict
             )
             print(s)
@@ -383,7 +410,7 @@ class CustomModelBase(tf.keras.Model):
                 "Training Loss: {loss:.3f}, "
                 "Accuracy: {accuracy:.1%}, Precision: {precision:.1%}, "
                 "Recall: {recall:.1%}, F1: {f1:.1%}, "
-                "LID: {lid:.0f}").format(
+                "Mean LID: {lid:.1f}").format(
                 epoch, batch, **print_dict
             )
             print(s)
@@ -408,11 +435,11 @@ class CustomModelBase(tf.keras.Model):
             tags = self.vocab_tags.lookup(tags)
             self.train_step(features, tags)
 
-            if train_batch % 25 == 0:
-                self.lid_utils['lid'].append(self.epoch_train_metrics['lid'].result())
-                self.epoch_train_metrics['lid'].reset_states()
-                self.lid_utils['iter'].append(train_batch)
-                self.lid_utils['policy_factor'].append(1)
+            # if train_batch % 25 == 0:
+            #     self.lid_utils['lid'].append(self.epoch_train_metrics['lid'].result())
+            #     self.epoch_train_metrics['lid'].reset_states()
+            #     self.lid_utils['iter'].append(train_batch)
+            #     self.lid_utils['policy_factor'].append(1)
 
             if train_batch % test_every_n == 0:
                 self._test(test_data, five_perc)
@@ -430,6 +457,7 @@ class CustomModelBase(tf.keras.Model):
 
     def _multi_epoch(self, train_data, test_data, update_metrics_every_n):
         num_lines = buffer_count(ftags(self.params['datadir'], 'train'))
+        # iter_per_epoch = int(np.floor(num_lines / self.params['batch_size']))
         T = int(
             np.floor(
                 num_lines / self.params['batch_size']
@@ -443,11 +471,11 @@ class CustomModelBase(tf.keras.Model):
             tags = self.vocab_tags.lookup(tags)
             self.train_step(features, tags)
 
-            if batch % 25 == 0:
-                self.lid_utils['lid'].append(self.epoch_train_metrics['lid'].result())
-                self.epoch_train_metrics['lid'].reset_states()
-                self.lid_utils['iter'].append(i)
-                self.lid_utils['policy_factor'].append(1)
+            # if batch % 25 == 0:
+            #     self.lid_utils['lid'].append(self.epoch_train_metrics['lid'].result())
+            #     self.epoch_train_metrics['lid'].reset_states()
+            #     self.lid_utils['iter'].append(i)
+            #     self.lid_utils['policy_factor'].append(1)
 
             if batch % update_metrics_every_n == 0:
                 self.end_of_epoch_metrics(i=i, end=False)
@@ -629,8 +657,8 @@ class CustomModelBase(tf.keras.Model):
         :return:
         """
 
-        if len(tf.shape(logits)) == 3:
-            logits = tf.reshape(logits, [-1, tf.shape(logits)[2]])
+        # if len(tf.shape(logits)) == 3:
+        #     logits = tf.reshape(logits, [-1, tf.shape(logits)[2]])
 
         batch_size = tf.shape(logits)[0]
         # calculate pairwise distance
@@ -650,6 +678,37 @@ class CustomModelBase(tf.keras.Model):
         lids = -k / v_log
 
         return lids
+
+    # @staticmethod
+    # def _lid(logits, k=20):
+    #     """
+    #     Calculate LID for each data point in the array.
+    #     :param logits:
+    #     :param k:
+    #     :return:
+    #     """
+    #
+    #     if len(tf.shape(logits)) == 3:
+    #         logits = tf.reshape(logits, [-1, tf.shape(logits)[2]])
+    #
+    #     batch_size = tf.shape(logits)[0]
+    #     # calculate pairwise distance
+    #     r = tf.reduce_sum(logits * logits, 1)
+    #     # turn r into column vector
+    #     r1 = tf.reshape(r, [-1, 1])
+    #     d = r1 - 2 * tf.matmul(logits, tf.transpose(logits)) + tf.transpose(r1) + \
+    #         tf.ones([batch_size, batch_size])
+    #
+    #     # find the k nearest neighbor
+    #     d1 = -tf.sqrt(d)
+    #     d2, _ = tf.nn.top_k(d1, k=k, sorted=True)
+    #     d3 = -d2[:, 1:]  # skip the x-to-x distance 0 by using [,1:]
+    #
+    #     m = tf.transpose(tf.multiply(tf.transpose(d3), 1.0 / d3[:, -1]))
+    #     v_log = tf.reduce_sum(tf.math.log(m + tf.keras.backend.epsilon()), axis=1)  # to avoid nan
+    #     lids = -k / v_log
+    #
+    #     return lids
 
     def write_predictions(self, filedir, filename):
         Path("Results/score").mkdir(parents=True, exist_ok=True)
@@ -685,13 +744,13 @@ class CustomModelBase(tf.keras.Model):
                 self.params['datadir'], self.params['name']
             )
         )
-        lid_dict = {k: [i if isinstance(i, int) else i.numpy() for i in v]
-                    for k, v in self.lid_utils.items()}
-        pd.DataFrame(lid_dict).to_csv(
-            "{}/{}_lid_recording.csv".format(
-                self.params['datadir'], self.params['name']
-            )
-        )
+        # lid_dict = {k: [i if isinstance(i, int) else i.numpy() for i in v]
+        #             for k, v in self.lid_utils.items()}
+        # pd.DataFrame(lid_dict).to_csv(
+        #     "{}/{}_lid_recording.csv".format(
+        #         self.params['datadir'], self.params['name']
+        #     )
+        # )
 
 
 # TODO: fix the functions below (and predict_single) so that an interactive

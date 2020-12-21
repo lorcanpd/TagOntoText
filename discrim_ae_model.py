@@ -1,5 +1,6 @@
 
 import tensorflow as tf
+import pandas as pd
 from .base_model import CustomModelBase
 import tensorflow_addons as tfa
 from .discrim_auto_encoder import dAutoEncoder, get_jenks_break
@@ -51,11 +52,13 @@ class DAEncModel(CustomModelBase):
         output = self.bi_lstm_layer(embeddings)
 
         if training:
-            batch_lids = self._lid(logits=output, k=5)
-            not_inf = tf.math.is_finite(batch_lids)
-            batch_lids = tf.boolean_mask(batch_lids, not_inf)
+            # batch_lids = self._lid(logits=output, k=5)
+            # not_inf = tf.math.is_finite(batch_lids)
+            # batch_lids = tf.boolean_mask(batch_lids, not_inf)
+            for_lids = output
         else:
-            batch_lids = None
+            # batch_lids = None
+            for_lids = None
 
         if training:
             output = tf.nn.dropout(x=output,
@@ -73,7 +76,7 @@ class DAEncModel(CustomModelBase):
         else:
             false_negs = None
 
-        return logits, pred_ids, batch_lids, false_negs, embeddings_copy
+        return logits, pred_ids, for_lids, false_negs, embeddings_copy
 
     def predict_step(self, features):
         _, pred_ids, _, _, _ = self.call(features, training=False)
@@ -95,6 +98,17 @@ class DAEncModel(CustomModelBase):
         pred_neg = tf.equal(pred_ids, tf.cast(self.num_tags, tf.int32))
         ae_pos_pred_neg = tf.math.logical_and(unflat_ae_pos, pred_neg)
 
+        if self.autoencoder.i < 1000:
+            self.autoencoder.graph_data.update(
+                {
+                    self.autoencoder.i: {
+                        'jenks': divider.numpy(),
+                        'recon_errors': recon_errors.numpy()
+                    }
+                }
+            )
+            self.autoencoder.i += 1
+
         return ae_pos_pred_neg
 
     def encoder_train(self, embeddings, pred_ids):
@@ -106,7 +120,7 @@ class DAEncModel(CustomModelBase):
 
     def train_step(self, features, tags):
         with tf.GradientTape() as tape:
-            logits, pred_ids, batch_lids, false_negs, embs = self.call(
+            logits, pred_ids, for_lids, false_negs, embs = self.call(
                 features,
                 training=True
             )
@@ -125,7 +139,13 @@ class DAEncModel(CustomModelBase):
 
         self.encoder_train(embs, pred_ids)
 
-        weights = tf.cast(tf.sequence_mask(features['nwords']), tf.int32)
+        mask = tf.sequence_mask(features['nwords'])
+
+        # Calculate latent intrinsic dimensionality.
+        for_lids = tf.boolean_mask(for_lids, mask)
+        batch_lids = self._lid(for_lids, k=5)
+
+        weights = tf.cast(mask, tf.int32)
 
         self.epoch_train_metrics['loss'].update_state(loss_value)
         self.epoch_train_metrics['accuracy'].update_state(tags, pred_ids)
@@ -139,6 +159,7 @@ class DAEncModel(CustomModelBase):
             tags, pred_ids, self.num_tags, self.indices, weights
         )
         self.epoch_train_metrics['lid'].update_state(batch_lids)
+        # self.lid_utils['lid'].append(batch_lids)
 
     def test_step(self, features, tags):
         logits, pred_ids, _, _, _ = self.call(features, training=False)
@@ -173,3 +194,31 @@ class DAEncModel(CustomModelBase):
         loss = tf.compat.v1.reduce_mean(-log_likelihood)
 
         return loss
+
+    def export_metrics(self):
+        # breakpoint()
+        train_dict = {k: [i if isinstance(i, int) else i.numpy() for i in v]
+                      for k, v in self.train_metrics.items()}
+        test_dict = {k: [i if isinstance(i, int) else i.numpy() for i in v]
+                     for k, v in self.test_metrics.items()}
+        train = pd.DataFrame(train_dict).add_prefix('train_')
+        test = pd.DataFrame(test_dict).add_prefix('test_')
+        pd.concat([train, test], axis=1).to_csv(
+            "{}/{}_training_metrics.csv".format(
+                self.params['datadir'], self.params['name']
+            )
+        )
+        # lid_dict = {k: [i if isinstance(i, int) else i.numpy() for i in v]
+        #             for k, v in self.lid_utils.items()}
+        # pd.DataFrame(lid_dict).to_csv(
+        #     "{}/{}_lid_recording.csv".format(
+        #         self.params['datadir'], self.params['name']
+        #     )
+        # )
+
+        pd.DataFrame.from_dict(self.autoencoder.graph_data,
+                               orient='index').to_csv(
+            "{}/{}_jenks_breaks.csv".format(
+                self.params['datadir'], self.params['name']
+            )
+        )

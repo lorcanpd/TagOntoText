@@ -23,10 +23,10 @@ def build_corpus(filepath, outdir, labels):
                 mt = tokenise(match, lower=False)
                 lmt = len(mt)
 
-                for x, _ in enumerate(tokens):
+                for x, _ in enumerate(tokens_):
 
                     if x+lmt <= lt and all(
-                            [tk == tokens[x+j] for j, tk in enumerate(mt)]
+                            [tk == tokens_[x+j] for j, tk in enumerate(mt)]
                     ):
 
                         for y in range(lmt):

@@ -334,15 +334,20 @@ def aere_crf_unary_score(
     masks = tf.sequence_mask(
         sequence_lengths, maxlen=tf.shape(tag_indices)[1], dtype=tf.float32
     )
-    # This mask is used to reduce the score contribution of elements, where the
-    # autoencoder reconstruction error predicts that the element is positive
-    # while the NER model predicts a negative tag, to zero.
+    # # This mask is used to reduce the score contribution of elements, where the
+    # # autoencoder reconstruction error predicts that the element is positive
+    # # while the NER model predicts a negative tag, to zero.
+    # if false_negatives is not None:
+    #     fn_mask = tf.cast(tf.logical_not(false_negatives), tf.float32)
+    # else:
+    #     fn_mask = tf.ones_like(tag_indices, tf.float32)
+
     if false_negatives is not None:
-        fn_mask = tf.cast(tf.logical_not(false_negatives), tf.float32)
+        fn_mask = tf.ones_like(tag_indices, tf.float32) - \
+                  2 * tf.cast(false_negatives, tf.float32)
     else:
         fn_mask = tf.ones_like(tag_indices, tf.float32)
 
-    # Might add something to increase score using positive unary tags.
 
     # Calculate the score by summing the unary potentials of the correct tags
     # as indicated in the training data.

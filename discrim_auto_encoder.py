@@ -23,6 +23,10 @@ class dAutoEncoder(tf.keras.Model):
 
         self.optimizer = tf.keras.optimizers.Adam()
 
+        self.i = 0
+        # Assigned directly to the object dict to prevent tf from tracking it.
+        self.__dict__['graph_data'] = {}
+
     def call(self, data):
         x = self.hidden_layer_1(data)
         x = self.code_layer(x)
