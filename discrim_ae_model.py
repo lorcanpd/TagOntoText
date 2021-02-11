@@ -14,7 +14,7 @@ class DAEncModel(CustomModelBase):
         self.autoencoder = dAutoEncoder(params)
 
     def call(self, data, training=None, **kwargs):
-
+        mask = tf.sequence_mask(data['nwords'])  # Mask added.
         if isinstance(data, dict):
             data = ((data['words'], data['nwords']),
                     (data['chars'], data['nchars']))
@@ -72,7 +72,7 @@ class DAEncModel(CustomModelBase):
 
         if training:
             # Use auto encoder error to discriminate.
-            false_negs = self.encoder_predict(embeddings_copy, pred_ids)
+            false_negs = self.encoder_predict(embeddings_copy, pred_ids, mask)
         else:
             false_negs = None
 
@@ -83,7 +83,14 @@ class DAEncModel(CustomModelBase):
         pred_ids = self.reverse_vocab_tags.lookup(tf.cast(pred_ids, tf.int64))
         return pred_ids
 
-    def encoder_predict(self, embeddings, pred_ids):
+    def encoder_predict(self, embeddings, pred_ids, mask):  # Mask added.
+        # Mask empty paddings vectors from jenks break calculation.
+        flat_embeddings = tf.boolean_mask(embeddings, mask)  # Mask added.
+        recon_errors = self.autoencoder.reconstruction_error(
+            flat_embeddings
+        )
+        divider = get_jenks_break(recon_errors)
+
         flat_embeddings = tf.reshape(
             embeddings,
             [-1, self.autoencoder.input_size]
@@ -91,8 +98,9 @@ class DAEncModel(CustomModelBase):
         recon_errors = self.autoencoder.reconstruction_error(
             flat_embeddings
         )
-        divider = get_jenks_break(recon_errors)
-        ae_pos = tf.math.less(recon_errors, divider)
+        cluster_1 = tf.math.less(recon_errors, divider)
+        not_zero = tf.math.greater(recon_errors, 0)
+        ae_pos = tf.logical_and(cluster_1, not_zero)
         unflat_ae_pos = tf.reshape(ae_pos,
                                    (self.params['batch_size'], -1))
         pred_neg = tf.equal(pred_ids, tf.cast(self.num_tags, tf.int32))
@@ -216,9 +224,17 @@ class DAEncModel(CustomModelBase):
         #     )
         # )
 
+        # pd.DataFrame.from_dict(self.autoencoder.graph_data,
+        #                        orient='index').to_csv(
+        #     "{}/{}_jenks_breaks.csv".format(
+        #         self.params['datadir'], self.params['name']
+        #     )
+        # )
+
         pd.DataFrame.from_dict(self.autoencoder.graph_data,
-                               orient='index').to_csv(
-            "{}/{}_jenks_breaks.csv".format(
+                               orient='index').to_pickle(
+            "{}/{}_jenks_breaks.pickle".format(
                 self.params['datadir'], self.params['name']
             )
         )
+

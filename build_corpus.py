@@ -2,7 +2,7 @@
 
 from tensorflow.keras.preprocessing.text \
     import text_to_word_sequence as tokenise
-from unidecode import unidecode
+# from unidecode import unidecode
 
 
 def build_corpus(filepath, outdir, labels):
@@ -20,7 +20,7 @@ def build_corpus(filepath, outdir, labels):
             count = set()
 
             for match in matches_:
-                mt = tokenise(match, lower=False)
+                mt = tokenise(match, lower=False, filters=' ')
                 lmt = len(mt)
 
                 for x, _ in enumerate(tokens_):
@@ -40,7 +40,8 @@ def build_corpus(filepath, outdir, labels):
         matches = get_matches(sent, labels_)
 
         if matches:
-            token_list = tokenise(sent, lower=False)
+            # breakpoint()
+            token_list = tokenise(sent, lower=False, filters=' ')
             tag_list = get_tags(token_list, matches)
         else:
             token_list = tag_list = None
@@ -55,7 +56,8 @@ def build_corpus(filepath, outdir, labels):
             open(tagspath, "w") as tp:
 
         for line in fp:
-            line = unidecode(line).rstrip('\n')
+            # line = unidecode(line).rstrip('\n')
+            line = line.strip('\n')
             tokens, tags = worker(line, labels)
 
             if tokens and tags:

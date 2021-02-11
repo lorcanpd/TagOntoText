@@ -3,7 +3,6 @@
 
 from collections import Counter
 from pathlib import Path
-import numpy as np
 
 
 def build_vocab(datadir):
@@ -58,38 +57,52 @@ def build_vocab(datadir):
     print(f'- done. Found {len(vocab_tags)} tags.')
 
 
-def build_glove(datadir, glove_txt_path):
-    # Load vocab
-    with Path(f'{datadir}/vocab_words.txt').open() as f:
-        word_to_idx = {line.strip(): idx for idx, line in enumerate(f)}
+# def build_glove(datadir, glove_txt_path):
+#     # Load vocab
+#     with Path(f'{datadir}/vocab_words.txt').open() as f:
+#         word_to_idx = {line.strip(): idx for idx, line in enumerate(f)}
+#
+#     size_vocab = len(word_to_idx)
+#     # Array of zeros
+#     embeddings = np.zeros((size_vocab, 300))
+#
+#     # Get relevant glove vectors
+#     found = 0
+#     print('Reading GloVe file (may take a while)')
+#     with Path(glove_txt_path).open() as f:
+#
+#         for line_idx, line in enumerate(f):
+#
+#             if line_idx % 100000 == 0:
+#                 print(f'- At line {line_idx}')
+#
+#             line = line.strip().split()
+#
+#             if len(line) != 300 + 1:
+#                 continue
+#             word = line[0].strip()
+#             embedding = line[1:]
+#
+#             if word in word_to_idx:
+#                 found += 1
+#                 word_idx = word_to_idx[word]
+#                 embeddings[word_idx] = embedding
+#
+#     print(f'- done. Found {found} vectors for {size_vocab} words')
+#
+#     # Save np.array to file.
+#     np.savez_compressed(f"{datadir}/glove.npz", embeddings=embeddings)
 
-    size_vocab = len(word_to_idx)
-    # Array of zeros
-    embeddings = np.zeros((size_vocab, 300))
 
-    # Get relevant glove vectors
-    found = 0
-    print('Reading GloVe file (may take a while)')
-    with Path(glove_txt_path).open() as f:
 
-        for line_idx, line in enumerate(f):
+# datadir = "../Data/"
 
-            if line_idx % 100000 == 0:
-                print(f'- At line {line_idx}')
+# fit word2vec
 
-            line = line.strip().split()
 
-            if len(line) != 300 + 1:
-                continue
-            word = line[0].strip()
-            embedding = line[1:]
 
-            if word in word_to_idx:
-                found += 1
-                word_idx = word_to_idx[word]
-                embeddings[word_idx] = embedding
 
-    print(f'- done. Found {found} vectors for {size_vocab} words')
 
-    # Save np.array to file.
-    np.savez_compressed(f"{datadir}/glove.npz", embeddings=embeddings)
+
+
+

@@ -531,7 +531,7 @@ class CustomModelBase(tf.keras.Model):
         )
 
     def _build_word_emb(self):
-        glove = np.load(self.params['glove'])['embeddings']
+        glove = np.load(self.params['word2vec'])['embeddings']
         variable = np.vstack([glove, [[0.] * self.params['dim']]])
         self.word_emb = tf.Variable(
             variable,
